@@ -1,6 +1,8 @@
-import discord,os,requests,random,string
+import discord,os,requests,random,string,json
 from bs4 import BeautifulSoup
 from discord.ext import commands
+
+data_file_name = "data.json"
 
 class Memes(commands.Cog):
     def __init__(self, bot):
@@ -14,10 +16,30 @@ class Memes(commands.Cog):
         'aleatorio':'https://es.memedroid.com/memes/random',
         'ultimos':'https://es.memedroid.com/memes/latest'
         }
+        # Mira si en los datos guardados existe un canal de memes, si no existe borra el listener
+        self.memeChannel = None
+        if not self.getMemeChannel():
+            bot.remove_listener(self.on_message)
+
         print('Memes Cog Funcionando')
 
     ##### Funciones de apoyo ####
-    
+
+    ##
+    #   getMemeChannel: Obtiene si existe un canal de
+    #       memes
+    #
+    def getMemeChannel(self):
+        if not os.path.exists(data_file_name):
+            return False
+        with open(data_file_name, encoding="utf8") as f:
+            data = json.load(f)
+            if  data is None :
+                return False
+            elif 'memeChannel' in data:
+                self.memeChannel = data['memeChannel']
+                return True
+
     ##
     #   filename_generator: Crea un nombre unico para el archivo
     #       que va a quedar descargado temporalmente
@@ -83,7 +105,7 @@ class Memes(commands.Cog):
                 if chunk:
                     f.write(chunk)
                     print('Archivo escrito')
-        embed = discord.Embed(title="Aqui lo tienes")
+        embed = discord.Embed(title="Aqui lo tienes, esta gracioso?", description="Meme proporcionado por Memedroid -> "+file)
         mesage = await ctx.send(embed=embed,file=discord.File(filename))
         await mesage.add_reaction('✅')
         await mesage.add_reaction('❌')
@@ -139,6 +161,45 @@ class Memes(commands.Cog):
             em = discord.Embed(title='Entrada no válida')
             await ctx.send(embed=em)
 
+    ##
+    #   memeVideo: comando que se llama para setear un canal como  
+    #       canal de memes
+    #
+    @commands.command(name='setMemeChannel', brief='Configura el canal como canal de memes', description='En el canal donde ejecutes este comando se enviarán los memes y añadirá reacción')
+    async def setMemeChannel(self, ctx):
+        data = {}
+        if os.path.exists(data_file_name):
+            with open(data_file_name, encoding="utf8") as f:
+                data = json.load(f)
+        if data is {} or not 'memeChannel' in data:
+            data['memeChannel']=ctx.channel.id
+            self.memeChannel = ctx.channel.id
+            with open(data_file_name, 'w') as f:
+                json.dump(data, f)
+                await ctx.message.delete()
+                await ctx.send("Channel succesfully setted")
+                self.bot.add_listener(self.on_message)
+        else:
+            data['memeChannel'] = ctx.channel.id
+            self.memeChannel = ctx.channel.id
+            with open(data_file_name, 'w') as f:
+                json.dump(data, f)
+                await ctx.message.delete()
+                await ctx.send("Channel succesfully setted")
+                self.bot.add_listener(self.on_message)
+
+    ##
+    #   on_message: al recibir un mensaje comprueba si  
+    #       pertenece al canal de memes, en tal caso, 
+    #       reacciona a cada mensaje del chat con un ✅ y ❌
+    #
+    @commands.Cog.listener()
+    async def on_message(self, message):
+        if self.memeChannel is None:
+            return
+        if message.channel.id == self.memeChannel:
+            await message.add_reaction('✅')
+            await message.add_reaction('❌')
 
 def setup(bot):
     bot.add_cog(Memes(bot))

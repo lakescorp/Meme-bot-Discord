@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 
-prefix = '-'
+prefix = '/'
 intents = discord.Intents.default()
 intents.members = True
 bot = commands.Bot(command_prefix=prefix, intents=intents)
